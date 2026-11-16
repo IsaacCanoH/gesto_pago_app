@@ -2,21 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/ui/app_widgets.dart';
 import '../../../../core/ui/code_input.dart';
-import '../../../catalog/data/models/product.dart';
+import '../../data/models/purchase_draft.dart';
 import '../widgets/payment_progress_button.dart';
 
 class PurchasePage extends StatefulWidget {
   const PurchasePage({
     super.key,
-    required this.product,
-    required this.reference,
-    required this.amount,
+    required this.draft,
     this.account,
     this.processing = false,
   });
-  final Product product;
-  final String reference;
-  final double amount;
+  final PurchaseDraft draft;
   final String? account;
   final bool processing;
 
@@ -45,22 +41,24 @@ class _PurchasePageState extends State<PurchasePage> {
           Surface(
             child: Column(
               children: [
-                ReceiptRow('Producto', widget.product.service),
+                if (widget.draft.serviceName != widget.draft.productName) ...[
+                  ReceiptRow('Servicio', widget.draft.serviceName),
+                  const Divider(),
+                ],
+                ReceiptRow('Producto', widget.draft.productName),
                 const Divider(),
                 ReceiptRow(
-                  widget.product.fixed ? 'Teléfono' : 'Referencia',
-                  widget.reference,
+                  widget.draft.fixed
+                      ? 'Teléfono o identificador'
+                      : 'Referencia',
+                  widget.draft.reference,
                 ),
                 const Divider(),
                 if (widget.account != null) ...[
                   ReceiptRow('Cuenta de cargo', widget.account!),
                   const Divider(),
                 ],
-                ReceiptRow(
-                  'Total',
-                  '\$${widget.amount.toStringAsFixed(2)} MXN',
-                  strong: true,
-                ),
+                ReceiptRow('Total', widget.draft.amountLabel, strong: true),
               ],
             ),
           ),
