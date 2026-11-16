@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../app/theme.dart';
+import '../../../../core/formatting/payment_date.dart';
 import '../../../../core/ui/app_widgets.dart';
 import '../../data/models/transaction.dart';
 
@@ -22,9 +22,9 @@ class TransactionDetailPage extends StatelessWidget {
               ?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        const Text(
-          'Pago exitoso',
-          style: TextStyle(color: success, fontWeight: FontWeight.w700),
+        Text(
+          transaction.statusLabel,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 24),
         Surface(
@@ -32,11 +32,7 @@ class TransactionDetailPage extends StatelessWidget {
             children: [
               ReceiptRow('UPC', transaction.upc),
               const Divider(),
-              ReceiptRow('Fecha de confirmación', transaction.date),
-              const Divider(),
-              ReceiptRow('Cuenta de cargo', transaction.account),
-              const Divider(),
-              ReceiptRow('Autorización', transaction.authorization),
+              ReceiptRow('Fecha', formatPaymentDate(transaction.createdAt)),
             ],
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/theme.dart';
+import '../../../../core/formatting/payment_date.dart';
 import '../../../../core/ui/app_widgets.dart';
 import '../../data/models/purchase_draft.dart';
 import '../../data/models/purchase_result.dart';
@@ -38,15 +39,6 @@ class _PurchaseResultPageState extends State<PurchaseResultPage> {
     super.dispose();
   }
 
-  String formatDate(DateTime value) {
-    final date = value.toLocal();
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final hour = date.hour.toString().padLeft(2, '0');
-    final minute = date.minute.toString().padLeft(2, '0');
-    return '$day/$month/${date.year} $hour:$minute';
-  }
-
   Future<void> copyUpc(String upc) async {
     await Clipboard.setData(ClipboardData(text: upc));
     if (mounted) {
@@ -64,7 +56,7 @@ class _PurchaseResultPageState extends State<PurchaseResultPage> {
           ReceiptRow('Cuenta de cargo', widget.accountLabel),
           if (date != null) ...[
             const Divider(),
-            ReceiptRow('Fecha', formatDate(date)),
+            ReceiptRow('Fecha', formatPaymentDate(date)),
           ],
           if (result != null) ...[
             const Divider(),
