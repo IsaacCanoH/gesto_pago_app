@@ -39,6 +39,7 @@ void main() {
             repository: const CatalogFixture(),
             token: 'token-de-prueba',
             onSessionExpired: () {},
+            onProductSelected: (_) {},
           ),
         ),
       ),

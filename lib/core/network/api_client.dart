@@ -5,17 +5,22 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.serverMessage});
   final String message;
   final int? statusCode;
+  final String? serverMessage;
 }
 
 class ApiClient {
   const ApiClient(this.baseUrl);
   final Uri? baseUrl;
 
-  Future<Map<String, dynamic>> post(String path, Map<String, String> body) =>
-      _request('POST', path, body: body);
+  Future<Map<String, dynamic>> post(
+    String path,
+    Map<String, Object> body, {
+    String? token,
+    Duration timeout = const Duration(seconds: 15),
+  }) => _request('POST', path, body: body, token: token, timeout: timeout);
 
   Future<Map<String, dynamic>> get(String path, {required String token}) =>
       _request('GET', path, token: token);
@@ -23,8 +28,9 @@ class ApiClient {
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
-    Map<String, String>? body,
+    Map<String, Object>? body,
     String? token,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     if (kIsWeb) {
       throw const ApiException(
@@ -46,7 +52,7 @@ class ApiClient {
         path,
         body,
         token,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(timeout);
     } on TimeoutException {
       throw const ApiException(
         'El servidor tardó en responder. Intenta de nuevo.',
@@ -67,7 +73,7 @@ class ApiClient {
     Uri base,
     String method,
     String path,
-    Map<String, String>? body,
+    Map<String, Object>? body,
     String? token,
   ) async {
     final prefix = base.path.replaceFirst(RegExp(r'/+$'), '');
@@ -85,16 +91,37 @@ class ApiClient {
       request.write(jsonEncode(body));
     }
     final response = await request.close();
-    if (response.statusCode != 200) {
-      throw _responseError(response.statusCode, authenticated: token != null);
-    }
     final raw = await response.transform(utf8.decoder).join();
+    if (response.statusCode != 200) {
+      throw _responseError(
+        response.statusCode,
+        authenticated: token != null,
+        serverMessage: _readErrorMessage(raw),
+      );
+    }
     final decoded = jsonDecode(raw);
     if (decoded is Map<String, dynamic>) return decoded;
     throw const FormatException();
   }
 
-  ApiException _responseError(int code, {required bool authenticated}) {
+  String? _readErrorMessage(String raw) {
+    try {
+      final error = jsonDecode(raw);
+      if (error is Map<String, dynamic> && error['codigo'] == 1) {
+        final message = error['mensaje'];
+        if (message is String) return message;
+      }
+    } on FormatException {
+      return null;
+    }
+    return null;
+  }
+
+  ApiException _responseError(
+    int code, {
+    required bool authenticated,
+    required String? serverMessage,
+  }) {
     final message = switch (code) {
       400 =>
         authenticated
@@ -108,6 +135,10 @@ class ApiClient {
       429 => 'Espera un momento antes de intentar de nuevo.',
       _ => 'El servicio no está disponible. Intenta más tarde.',
     };
-    return ApiException(message, statusCode: code);
+    return ApiException(
+      message,
+      statusCode: code,
+      serverMessage: serverMessage,
+    );
   }
 }

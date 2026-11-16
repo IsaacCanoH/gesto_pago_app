@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/theme.dart';
 import '../../../../core/ui/app_widgets.dart';
+import '../../../purchases/data/purchases_repository.dart';
 import '../../../purchases/presentation/pages/purchase_page.dart';
 import '../../data/models/product.dart';
 import '../view_models/product_detail_view_model.dart';
 
 class ProductDetailPage extends StatefulWidget {
-  const ProductDetailPage({super.key, required this.product});
+  const ProductDetailPage({
+    super.key,
+    required this.product,
+    required this.submitPurchase,
+    required this.loadAccounts,
+  });
   final Product product;
+  final SubmitPurchase submitPurchase;
+  final LoadChargeAccounts loadAccounts;
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -40,9 +48,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
     FocusScope.of(context).unfocus();
     setState(() => reviewing = true);
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => PurchasePage(draft: draft)));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PurchasePage(
+          draft: draft,
+          submitPurchase: widget.submitPurchase,
+          loadAccounts: widget.loadAccounts,
+        ),
+      ),
+    );
     if (mounted) setState(() => reviewing = false);
   }
 

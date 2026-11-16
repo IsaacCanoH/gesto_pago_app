@@ -4,7 +4,7 @@ import '../../../../app/theme.dart';
 import '../../../../core/ui/app_widgets.dart';
 import '../../data/catalog_repository.dart';
 import '../view_models/catalog_view_model.dart';
-import 'product_detail_page.dart';
+import '../../data/models/product.dart';
 
 class CatalogPage extends StatefulWidget {
   const CatalogPage({
@@ -12,11 +12,13 @@ class CatalogPage extends StatefulWidget {
     required this.repository,
     required this.token,
     required this.onSessionExpired,
+    required this.onProductSelected,
   });
 
   final CatalogRepository repository;
   final String token;
   final VoidCallback onSessionExpired;
+  final ValueChanged<Product> onProductSelected;
 
   @override
   State<CatalogPage> createState() => _CatalogPageState();
@@ -221,11 +223,7 @@ class _CatalogPageState extends State<CatalogPage> {
                             : product.description,
                       ),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ProductDetailPage(product: product),
-                        ),
-                      ),
+                      onTap: () => widget.onProductSelected(product),
                     ),
                   );
                 },
