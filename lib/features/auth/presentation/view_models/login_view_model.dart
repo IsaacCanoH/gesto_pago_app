@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../data/auth_repository.dart';
-import '../../data/models/auth_session.dart';
+import '../../data/models/auth_challenge.dart';
 
 class LoginViewModel extends ChangeNotifier {
   LoginViewModel(this.repository);
@@ -11,7 +11,7 @@ class LoginViewModel extends ChangeNotifier {
   String? error;
   bool _disposed = false;
 
-  Future<AuthSession?> signIn(String email, String password) async {
+  Future<AuthChallenge?> signIn(String email, String password) async {
     if (busy) return null;
     busy = true;
     error = null;

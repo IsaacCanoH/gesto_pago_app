@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gesto_pago_app/app/app.dart';
 import 'package:gesto_pago_app/core/network/api_client.dart';
 import 'package:gesto_pago_app/features/auth/data/auth_repository.dart';
+import 'package:gesto_pago_app/features/auth/data/models/auth_challenge.dart';
 import 'package:gesto_pago_app/features/auth/data/models/auth_session.dart';
 import 'package:gesto_pago_app/features/catalog/data/catalog_repository.dart';
 import 'package:gesto_pago_app/features/catalog/data/models/product.dart';
@@ -12,16 +13,44 @@ import 'package:gesto_pago_app/features/catalog/data/models/product.dart';
 class DeferredAuthRepository extends AuthRepository {
   DeferredAuthRepository() : super(const ApiClient(null));
 
-  final response = Completer<AuthSession>();
+  final response = Completer<AuthChallenge>();
+  final verification = Completer<AuthSession>();
+  final resendResponse = Completer<AuthChallenge>();
+  final verifications = <(String, String)>[];
+  final resends = <String>[];
   int requests = 0;
   (String, String)? credentials;
 
   @override
-  Future<AuthSession> signIn(String email, String password) {
+  Future<AuthChallenge> signIn(String email, String password) {
     requests++;
     credentials = (email, password);
     return response.future;
   }
+
+  @override
+  Future<AuthSession> verify(String id, String code) {
+    verifications.add((id, code));
+    return verification.future;
+  }
+
+  @override
+  Future<AuthChallenge> resend(String id) {
+    resends.add(id);
+    return resendResponse.future;
+  }
+}
+
+AuthChallenge challenge({
+  String id = 'reto-inicial',
+  Duration resendDelay = const Duration(minutes: 1),
+}) {
+  final now = DateTime.now();
+  return AuthChallenge(
+    id: id,
+    expiresAt: now.add(const Duration(minutes: 5)),
+    resendAt: now.add(resendDelay),
+  );
 }
 
 class TestCatalogRepository extends CatalogRepository {
@@ -65,7 +94,7 @@ void main() {
   });
 
   testWidgets(
-    'protege el envío y abre una sesión al recibir una respuesta válida',
+    'protege ambos envíos y abre el catálogo solo después del código válido',
     (tester) async {
       final repository = DeferredAuthRepository();
       final catalog = TestCatalogRepository();
@@ -83,7 +112,28 @@ void main() {
         ' clave de prueba ',
       ));
 
-      repository.response.complete(
+      repository.response.complete(challenge());
+      await tester.pumpAndSettle();
+      expect(find.text('Verificación en dos pasos'), findsOneWidget);
+      expect(find.textContaining('Reenviar código en'), findsOneWidget);
+      expect(catalog.token, isNull);
+
+      final verify = find.text('Verificar código');
+      await tester.tap(verify);
+      await tester.pumpAndSettle();
+      expect(find.text('Ingresa los seis dígitos del código.'), findsOneWidget);
+      expect(repository.verifications, isEmpty);
+
+      await tester.enterText(find.byType(TextField), '012345');
+      await tester.ensureVisible(verify);
+      await tester.tap(verify);
+      await tester.pump();
+      expect(find.text('Verificando…'), findsOneWidget);
+      await tester.tap(find.text('Verificando…'));
+      expect(repository.verifications, [('reto-inicial', '012345')]);
+      expect(catalog.token, isNull);
+
+      repository.verification.complete(
         AuthSession(
           token: 'token-de-prueba',
           expiresAt: DateTime.now().add(const Duration(minutes: 10)),
@@ -104,6 +154,83 @@ void main() {
       await tester.tap(find.byTooltip('Cerrar sesión'));
       await tester.pumpAndSettle();
       expect(find.text('Iniciar sesión'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'reenvía al vencer la espera y verifica con el identificador nuevo',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = DeferredAuthRepository();
+      await tester.pumpWidget(GestoPagoApp(authRepository: repository));
+      final brand = find.text('Gesto Pago');
+      final loginBrandOffset = tester.getTopLeft(brand);
+      await fillCredentials(tester);
+      await tester.tap(find.text('Iniciar sesión'));
+      await tester.pump();
+      repository.response.complete(challenge(resendDelay: Duration.zero));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(brand), loginBrandOffset);
+      final scaffoldFinder = find.byType(Scaffold);
+      final scaffold = tester.widget<Scaffold>(scaffoldFinder);
+      final appBarFinder = find.byType(AppBar);
+      expect(
+        tester.widget<AppBar>(appBarFinder).forceMaterialTransparency,
+        isTrue,
+      );
+      expect(
+        tester.getRect(find.byWidget(scaffold.body!)),
+        tester.getRect(scaffoldFinder),
+      );
+      expect(
+        tester.getTopLeft(find.text('Verificación en dos pasos')).dy,
+        greaterThan(tester.getBottomLeft(appBarFinder).dy),
+      );
+
+      await tester.enterText(find.byType(TextField), '012345');
+      final resend = find.text('Reenviar código');
+      await tester.ensureVisible(resend);
+      await tester.tap(resend);
+      await tester.pump();
+      expect(find.text('Enviando código…'), findsOneWidget);
+      expect(repository.resends, ['reto-inicial']);
+
+      repository.resendResponse.complete(challenge(id: 'reto-nuevo'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Enviamos un código nuevo a tu correo.'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        isEmpty,
+      );
+      expect(find.textContaining('Reenviar código en'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '098765');
+      final verify = find.text('Verificar código');
+      await tester.ensureVisible(verify);
+      await tester.tap(verify);
+      await tester.pump();
+      repository.verification.completeError(
+        const ApiException(
+          'El correo o la contraseña son incorrectos.',
+          statusCode: 401,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.verifications, [('reto-nuevo', '098765')]);
+      expect(
+        find.text(
+          'El código es incorrecto o la verificación ya no está activa.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Catálogo'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 
