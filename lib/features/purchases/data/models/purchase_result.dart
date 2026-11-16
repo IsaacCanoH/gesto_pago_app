@@ -15,6 +15,7 @@ class PurchaseResult {
     this.createdAt,
     this.resolvedAt,
     this.authorization,
+    this.accountLastFour,
     this.requiresManualReview = false,
   });
 
@@ -28,6 +29,7 @@ class PurchaseResult {
     };
     if (upc is! String || upc.trim().isEmpty) throw const FormatException();
     final authorization = json['numeroAutorizacion'];
+    final accountLastFour = json['ultimosDigitos'];
     return PurchaseResult(
       upc: upc,
       status: status,
@@ -36,9 +38,15 @@ class PurchaseResult {
       authorization: authorization is String && authorization.trim().isNotEmpty
           ? authorization
           : null,
+      accountLastFour:
+          accountLastFour is String && _accountSuffix.hasMatch(accountLastFour)
+          ? accountLastFour
+          : null,
       requiresManualReview: json['requiereRevisionManual'] == true,
     );
   }
+
+  static final _accountSuffix = RegExp(r'^[0-9]{4}$');
 
   static DateTime? _readDate(Object? value) =>
       value is String ? DateTime.tryParse(value) : null;
@@ -48,5 +56,6 @@ class PurchaseResult {
   final DateTime? createdAt;
   final DateTime? resolvedAt;
   final String? authorization;
+  final String? accountLastFour;
   final bool requiresManualReview;
 }
