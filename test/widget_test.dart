@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gesto_pago_app/main.dart';
+import 'package:gesto_pago_app/app/app.dart';
 
 void main() {
   testWidgets('muestra el formulario de inicio de sesión', (tester) async {
     await tester.pumpWidget(const GestoPagoApp());
 
-    expect(find.text('Usuario'), findsOneWidget);
+    expect(find.text('Correo electrónico'), findsOneWidget);
     expect(find.text('Contraseña'), findsOneWidget);
     expect(find.text('Iniciar sesión'), findsOneWidget);
   });

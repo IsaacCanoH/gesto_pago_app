@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ui/app_widgets.dart';
+
 class AuthPageLayout extends StatelessWidget {
   const AuthPageLayout({
     required this.title,
     required this.subtitle,
     required this.child,
+    this.showBrandName = false,
     super.key,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final bool showBrandName;
 
   static const _primaryPurple = Color(0xFF8764C1);
 
@@ -24,27 +28,33 @@ class AuthPageLayout extends StatelessWidget {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 24,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _BrandMark(),
+                      if (showBrandName)
+                        const BrandMark()
+                      else
+                        const _BrandMark(),
                       const SizedBox(height: 40),
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: const Color(0xFF3F2A67),
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
+                              color: const Color(0xFF3F2A67),
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         subtitle,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: const Color(0xFF756B82),
-                        ),
+                        style: Theme.of(context).textTheme.bodyLarge
+                            ?.copyWith(color: const Color(0xFF756B82)),
                       ),
                       const SizedBox(height: 32),
                       child,
@@ -81,7 +91,10 @@ class _BrandMark extends StatelessWidget {
             ),
           ],
         ),
-        child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white),
+        child: const Icon(
+          Icons.account_balance_wallet_rounded,
+          color: Colors.white,
+        ),
       ),
     );
   }
@@ -95,10 +108,30 @@ class _DecorativeBackground extends StatelessWidget {
     return IgnorePointer(
       child: Stack(
         children: [
-          _circle(top: -150, right: -90, size: 310, color: AuthPageLayout._primaryPurple),
-          _circle(top: -82, right: 105, size: 145, color: const Color(0xFFA58AD5)),
-          _circle(bottom: -85, left: -75, size: 205, color: const Color(0xFF7A55B7)),
-          _circle(bottom: 82, left: 76, size: 42, color: const Color(0xFFC7B7E0)),
+          _circle(
+            top: -150,
+            right: -90,
+            size: 310,
+            color: AuthPageLayout._primaryPurple,
+          ),
+          _circle(
+            top: -82,
+            right: 105,
+            size: 145,
+            color: const Color(0xFFA58AD5),
+          ),
+          _circle(
+            bottom: -85,
+            left: -75,
+            size: 205,
+            color: const Color(0xFF7A55B7),
+          ),
+          _circle(
+            bottom: 82,
+            left: 76,
+            size: 42,
+            color: const Color(0xFFC7B7E0),
+          ),
         ],
       ),
     );
