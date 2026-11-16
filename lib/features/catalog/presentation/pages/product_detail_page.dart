@@ -13,10 +13,12 @@ class ProductDetailPage extends StatefulWidget {
     required this.product,
     required this.submitPurchase,
     required this.loadAccounts,
+    required this.consultPurchase,
   });
   final Product product;
   final SubmitPurchase submitPurchase;
   final LoadChargeAccounts loadAccounts;
+  final ConsultPurchase consultPurchase;
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
@@ -54,6 +56,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           draft: draft,
           submitPurchase: widget.submitPurchase,
           loadAccounts: widget.loadAccounts,
+          consultPurchase: widget.consultPurchase,
         ),
       ),
     );

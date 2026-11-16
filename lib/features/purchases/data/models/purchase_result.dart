@@ -9,7 +9,14 @@ enum PurchaseStatus {
 }
 
 class PurchaseResult {
-  const PurchaseResult({required this.upc, required this.status});
+  const PurchaseResult({
+    required this.upc,
+    required this.status,
+    this.createdAt,
+    this.resolvedAt,
+    this.authorization,
+    this.requiresManualReview = false,
+  });
 
   factory PurchaseResult.fromJson(Map<String, dynamic> json) {
     final upc = json['upc'];
@@ -20,9 +27,26 @@ class PurchaseResult {
       _ => throw const FormatException(),
     };
     if (upc is! String || upc.trim().isEmpty) throw const FormatException();
-    return PurchaseResult(upc: upc, status: status);
+    final authorization = json['numeroAutorizacion'];
+    return PurchaseResult(
+      upc: upc,
+      status: status,
+      createdAt: _readDate(json['fechaCreacion']),
+      resolvedAt: _readDate(json['fechaResolucion']),
+      authorization: authorization is String && authorization.trim().isNotEmpty
+          ? authorization
+          : null,
+      requiresManualReview: json['requiereRevisionManual'] == true,
+    );
   }
+
+  static DateTime? _readDate(Object? value) =>
+      value is String ? DateTime.tryParse(value) : null;
 
   final String upc;
   final PurchaseStatus status;
+  final DateTime? createdAt;
+  final DateTime? resolvedAt;
+  final String? authorization;
+  final bool requiresManualReview;
 }

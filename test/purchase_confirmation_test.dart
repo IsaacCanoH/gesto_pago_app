@@ -8,7 +8,8 @@ import 'package:gesto_pago_app/features/purchases/data/models/purchase_request.d
 import 'package:gesto_pago_app/features/purchases/data/models/purchase_result.dart';
 import 'package:gesto_pago_app/features/purchases/data/purchases_repository.dart';
 import 'package:gesto_pago_app/features/purchases/presentation/pages/purchase_page.dart';
-import 'package:gesto_pago_app/features/purchases/presentation/widgets/payment_progress_button.dart';
+import 'package:gesto_pago_app/core/network/api_client.dart';
+import 'package:gesto_pago_app/features/purchases/presentation/pages/purchase_result_page.dart';
 
 const draft = PurchaseDraft(
   serviceId: 20,
@@ -25,6 +26,8 @@ void main() {
     tester,
   ) async {
     PurchaseRequest? sent;
+    var submissions = 0;
+    var consultations = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: PurchasePage(
@@ -32,11 +35,24 @@ void main() {
           loadAccounts: () async => const [
             ChargeAccount(id: 9, lastFour: '0724'),
           ],
-          submitPurchase: (request) async {
-            sent = request;
+          consultPurchase: (upc) async {
+            expect(upc, 'P12345678901234');
+            consultations++;
+            if (consultations == 1) {
+              throw const ApiException('No pudimos consultar el estado.');
+            }
             return const PurchaseResult(
               upc: 'P12345678901234',
               status: PurchaseStatus.successful,
+              authorization: 'A2026',
+            );
+          },
+          submitPurchase: (request) async {
+            submissions++;
+            sent = request;
+            return const PurchaseResult(
+              upc: 'P12345678901234',
+              status: PurchaseStatus.pending,
             );
           },
         ),
@@ -50,7 +66,23 @@ void main() {
     await tester.tap(find.text('Confirmar pago'));
     await tester.pumpAndSettle();
     expect(sent?.accountId, 9);
+    expect(find.byType(PurchaseResultPage), findsOneWidget);
+    expect(find.text('Pago pendiente'), findsOneWidget);
+    expect(find.text('P12345678901234'), findsOneWidget);
+    await tester.ensureVisible(find.text('Consultar estado'));
+    await tester.tap(find.text('Consultar estado'));
+    await tester.pumpAndSettle();
+    expect(find.text('No pudimos consultar el estado.'), findsOneWidget);
+    expect(find.text('Pago pendiente'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Consultar estado'));
+    await tester.tap(find.text('Consultar estado'));
+    await tester.pumpAndSettle();
     expect(find.text('Pago exitoso'), findsOneWidget);
+    expect(find.text('A2026'), findsOneWidget);
+    expect(find.text('Consultar estado'), findsNothing);
+    expect(submissions, 1);
+    expect(consultations, 2);
   });
   testWidgets(
     'valida cuenta y PIN, envía una sola vez y bloquea tras una respuesta incierta',
@@ -66,6 +98,8 @@ void main() {
               ChargeAccount(id: 9, lastFour: '0724'),
               ChargeAccount(id: 10, lastFour: '8961'),
             ],
+            consultPurchase: (_) async =>
+                throw StateError('Consulta fuera de la prueba'),
             submitPurchase: (request) {
               requests++;
               sent = request;
@@ -99,13 +133,10 @@ void main() {
       expect(find.text('Procesando pago…'), findsOneWidget);
       pending.completeError(const PurchaseFailure.unknown());
       await tester.pumpAndSettle();
-      expect(find.textContaining('Evita repetirlo'), findsOneWidget);
-      expect(
-        tester
-            .widget<PaymentProgressButton>(find.byType(PaymentProgressButton))
-            .onPressed,
-        isNull,
-      );
+      expect(find.textContaining('Evita repetir el pago'), findsOneWidget);
+      expect(find.text('Resultado sin confirmar'), findsOneWidget);
+      expect(find.text('Consultar estado'), findsNothing);
+      expect(find.text('Confirmar pago'), findsNothing);
     },
   );
 }

@@ -10,6 +10,8 @@ Future<void> openProduct(WidgetTester tester, Product product) =>
         home: ProductDetailPage(
           product: product,
           loadAccounts: () async => [],
+          consultPurchase: (_) async =>
+              throw StateError('Consulta fuera de la prueba'),
           submitPurchase: (_) async =>
               throw StateError("Pago fuera de la prueba"),
         ),

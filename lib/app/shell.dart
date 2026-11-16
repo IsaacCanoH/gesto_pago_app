@@ -42,6 +42,7 @@ class AppShell extends StatelessWidget {
           builder: (_) => ProductDetailPage(
             product: product,
             loadAccounts: () => purchasesRepository.loadAccounts(token),
+            consultPurchase: (upc) => purchasesRepository.consult(token, upc),
             submitPurchase: (request) =>
                 purchasesRepository.submit(token, request),
           ),
