@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../core/ui/app_widgets.dart';
+import '../features/catalog/data/catalog_repository.dart';
+import '../features/catalog/presentation/pages/catalog_page.dart';
 
 class AppShell extends StatelessWidget {
-  const AppShell({super.key, required this.email, required this.onExit});
-  final String? email;
+  const AppShell({
+    super.key,
+    required this.catalogRepository,
+    required this.token,
+    required this.onExit,
+  });
+
+  final CatalogRepository catalogRepository;
+  final String token;
   final VoidCallback onExit;
 
   @override
@@ -20,6 +29,10 @@ class AppShell extends StatelessWidget {
         ),
       ],
     ),
-    body: PageBody(children: [PageHeading('Sesión iniciada', subtitle: email)]),
+    body: CatalogPage(
+      repository: catalogRepository,
+      token: token,
+      onSessionExpired: onExit,
+    ),
   );
 }

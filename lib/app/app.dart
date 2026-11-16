@@ -7,12 +7,14 @@ import '../core/network/api_client.dart';
 import '../features/auth/data/auth_repository.dart';
 import '../features/auth/data/models/auth_session.dart';
 import '../features/auth/presentation/pages/login_page.dart';
+import '../features/catalog/data/catalog_repository.dart';
 import 'shell.dart';
 import 'theme.dart';
 
 class GestoPagoApp extends StatefulWidget {
-  const GestoPagoApp({super.key, this.authRepository});
+  const GestoPagoApp({super.key, this.authRepository, this.catalogRepository});
   final AuthRepository? authRepository;
+  final CatalogRepository? catalogRepository;
 
   @override
   State<GestoPagoApp> createState() => _GestoPagoAppState();
@@ -20,10 +22,10 @@ class GestoPagoApp extends StatefulWidget {
 
 class _GestoPagoAppState extends State<GestoPagoApp>
     with WidgetsBindingObserver {
-  late final repository =
-      widget.authRepository ?? AuthRepository(ApiClient(ApiConfig.baseUrl));
+  late final client = ApiClient(ApiConfig.baseUrl);
+  late final catalog = widget.catalogRepository ?? CatalogRepository(client);
+  late final repository = widget.authRepository ?? AuthRepository(client);
   AuthSession? session;
-  String? signedInEmail;
   Timer? expiry;
 
   @override
@@ -32,21 +34,15 @@ class _GestoPagoAppState extends State<GestoPagoApp>
     WidgetsBinding.instance.addObserver(this);
   }
 
-  void onSignedIn(AuthSession value, String email) {
+  void onSignedIn(AuthSession value) {
     expiry?.cancel();
     expiry = Timer(value.expiresAt.difference(DateTime.now()), endSession);
-    setState(() {
-      session = value;
-      signedInEmail = email;
-    });
+    setState(() => session = value);
   }
 
   void endSession() {
     expiry?.cancel();
-    setState(() {
-      session = null;
-      signedInEmail = null;
-    });
+    setState(() => session = null);
   }
 
   @override
@@ -73,7 +69,11 @@ class _GestoPagoAppState extends State<GestoPagoApp>
     debugShowCheckedModeBanner: false,
     theme: gestoPagoTheme(),
     home: session != null
-        ? AppShell(email: signedInEmail, onExit: endSession)
+        ? AppShell(
+            catalogRepository: catalog,
+            token: session!.token,
+            onExit: endSession,
+          )
         : LoginPage(repository: repository, onSignedIn: onSignedIn),
   );
 }
