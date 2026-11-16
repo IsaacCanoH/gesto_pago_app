@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/ui/app_widgets.dart';
@@ -8,6 +10,8 @@ class AuthPageLayout extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.showBrandName = false,
+    this.alignWithSignIn = false,
+    this.appBar,
     super.key,
   });
 
@@ -15,55 +19,64 @@ class AuthPageLayout extends StatelessWidget {
   final String subtitle;
   final Widget child;
   final bool showBrandName;
+  final bool alignWithSignIn;
+  final PreferredSizeWidget? appBar;
 
+  static const _signInLayoutHeight = 488.0;
   static const _primaryPurple = Color(0xFF8764C1);
 
   @override
   Widget build(BuildContext context) {
+    final content = SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showBrandName) const BrandMark() else const _BrandMark(),
+            const SizedBox(height: 40),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: const Color(0xFF3F2A67),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyLarge
+                  ?.copyWith(color: const Color(0xFF756B82)),
+            ),
+            const SizedBox(height: 32),
+            child,
+          ],
+        ),
+      ),
+    );
+
     return Scaffold(
+      appBar: appBar,
+      extendBodyBehindAppBar: appBar != null,
       backgroundColor: const Color(0xFFF9F8FC),
       body: Stack(
         children: [
           const _DecorativeBackground(),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 24,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (showBrandName)
-                        const BrandMark()
-                      else
-                        const _BrandMark(),
-                      const SizedBox(height: 40),
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(
-                              color: const Color(0xFF3F2A67),
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        subtitle,
-                        style: Theme.of(context).textTheme.bodyLarge
-                            ?.copyWith(color: const Color(0xFF756B82)),
-                      ),
-                      const SizedBox(height: 32),
-                      child,
-                    ],
+          if (alignWithSignIn)
+            LayoutBuilder(
+              builder: (context, constraints) => SafeArea(
+                minimum: EdgeInsets.only(
+                  top: math.max(
+                    0.0,
+                    (constraints.maxHeight - _signInLayoutHeight) / 2,
                   ),
                 ),
+                child: Align(alignment: Alignment.topCenter, child: content),
               ),
-            ),
-          ),
+            )
+          else
+            SafeArea(child: Center(child: content)),
         ],
       ),
     );

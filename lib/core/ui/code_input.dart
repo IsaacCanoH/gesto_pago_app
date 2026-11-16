@@ -10,11 +10,17 @@ class CodeInput extends StatelessWidget {
     required this.label,
     this.secret = false,
     this.enabled = true,
+    this.autofillHints,
+    this.onChanged,
+    this.onSubmitted,
   });
   final TextEditingController controller;
   final String label;
   final bool secret;
   final bool enabled;
+  final Iterable<String>? autofillHints;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -65,6 +71,9 @@ class CodeInput extends StatelessWidget {
             controller: controller,
             enabled: enabled,
             obscureText: secret,
+            autofillHints: autofillHints,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,

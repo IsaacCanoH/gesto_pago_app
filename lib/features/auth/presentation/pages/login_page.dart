@@ -6,6 +6,7 @@ import '../../data/models/auth_session.dart';
 import '../view_models/login_view_model.dart';
 import '../widgets/auth_page_layout.dart';
 import 'register_page.dart';
+import 'two_factor_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -42,10 +43,17 @@ class _LoginPageState extends State<LoginPage> {
     if (model.busy || !form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     final submittedEmail = email.text.trim();
-    final session = await model.signIn(submittedEmail, password.text);
-    if (mounted && session != null) {
-      widget.onSignedIn(session);
-    }
+    final challenge = await model.signIn(submittedEmail, password.text);
+    if (!mounted || challenge == null) return;
+
+    password.clear();
+    final session = await Navigator.of(context).push<AuthSession>(
+      MaterialPageRoute(
+        builder: (_) =>
+            TwoFactorPage(repository: widget.repository, challenge: challenge),
+      ),
+    );
+    if (mounted && session != null) widget.onSignedIn(session);
   }
 
   @override
@@ -59,6 +67,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) => AuthPageLayout(
     showBrandName: true,
+    alignWithSignIn: true,
     title: 'Bienvenido',
     subtitle: 'Inicia sesión para continuar',
     child: ListenableBuilder(
@@ -134,7 +143,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                             SizedBox(width: 10),
-                            Text('Iniciando sesión…'),
+                            Flexible(child: Text('Iniciando sesión…')),
                           ],
                         ),
                       )
