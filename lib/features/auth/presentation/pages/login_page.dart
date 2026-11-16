@@ -14,7 +14,7 @@ class LoginPage extends StatefulWidget {
     required this.onSignedIn,
   });
   final AuthRepository repository;
-  final void Function(AuthSession session, String email) onSignedIn;
+  final ValueChanged<AuthSession> onSignedIn;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
     final submittedEmail = email.text.trim();
     final session = await model.signIn(submittedEmail, password.text);
     if (mounted && session != null) {
-      widget.onSignedIn(session, submittedEmail);
+      widget.onSignedIn(session);
     }
   }
 

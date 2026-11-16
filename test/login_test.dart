@@ -6,6 +6,8 @@ import 'package:gesto_pago_app/app/app.dart';
 import 'package:gesto_pago_app/core/network/api_client.dart';
 import 'package:gesto_pago_app/features/auth/data/auth_repository.dart';
 import 'package:gesto_pago_app/features/auth/data/models/auth_session.dart';
+import 'package:gesto_pago_app/features/catalog/data/catalog_repository.dart';
+import 'package:gesto_pago_app/features/catalog/data/models/product.dart';
 
 class DeferredAuthRepository extends AuthRepository {
   DeferredAuthRepository() : super(const ApiClient(null));
@@ -19,6 +21,25 @@ class DeferredAuthRepository extends AuthRepository {
     requests++;
     credentials = (email, password);
     return response.future;
+  }
+}
+
+class TestCatalogRepository extends CatalogRepository {
+  TestCatalogRepository() : super(const ApiClient(null));
+
+  String? token;
+
+  @override
+  Future<List<Product>> load(String token) async {
+    this.token = token;
+    return const [
+      Product(
+        serviceId: 1,
+        service: 'Telcel',
+        type: 1,
+        offers: [ProductOffer(id: 1, name: 'Recarga', price: 100)],
+      ),
+    ];
   }
 }
 
@@ -47,7 +68,10 @@ void main() {
     'protege el envío y abre una sesión al recibir una respuesta válida',
     (tester) async {
       final repository = DeferredAuthRepository();
-      await tester.pumpWidget(GestoPagoApp(authRepository: repository));
+      final catalog = TestCatalogRepository();
+      await tester.pumpWidget(
+        GestoPagoApp(authRepository: repository, catalogRepository: catalog),
+      );
       await fillCredentials(tester);
       await tester.tap(find.text('Iniciar sesión'));
       await tester.pump();
@@ -66,8 +90,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Sesión iniciada'), findsOneWidget);
-      expect(find.text('cliente@example.com'), findsOneWidget);
+      expect(find.text('Catálogo'), findsOneWidget);
+      expect(find.text('Telcel'), findsOneWidget);
+      expect(catalog.token, 'token-de-prueba');
+
+      await tester.tap(find.text('Telcel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detalle del producto'), findsOneWidget);
+      expect(find.text('Importe de recarga'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Cerrar sesión'));
       await tester.pumpAndSettle();
@@ -92,7 +124,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Iniciar sesión'), findsOneWidget);
-      expect(find.text('Sesión iniciada'), findsNothing);
+      expect(find.text('Catálogo'), findsNothing);
     },
   );
 }
