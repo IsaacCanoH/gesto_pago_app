@@ -5,7 +5,16 @@ import 'package:gesto_pago_app/features/catalog/presentation/pages/product_detai
 import 'package:gesto_pago_app/features/purchases/presentation/pages/purchase_page.dart';
 
 Future<void> openProduct(WidgetTester tester, Product product) =>
-    tester.pumpWidget(MaterialApp(home: ProductDetailPage(product: product)));
+    tester.pumpWidget(
+      MaterialApp(
+        home: ProductDetailPage(
+          product: product,
+          loadAccounts: () async => [],
+          submitPurchase: (_) async =>
+              throw StateError("Pago fuera de la prueba"),
+        ),
+      ),
+    );
 
 void main() {
   testWidgets(

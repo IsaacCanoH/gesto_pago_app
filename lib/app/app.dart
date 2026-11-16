@@ -8,6 +8,7 @@ import '../features/auth/data/auth_repository.dart';
 import '../features/auth/data/models/auth_session.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/catalog/data/catalog_repository.dart';
+import '../features/purchases/data/purchases_repository.dart';
 import 'shell.dart';
 import 'theme.dart';
 
@@ -25,6 +26,7 @@ class _GestoPagoAppState extends State<GestoPagoApp>
   late final client = ApiClient(ApiConfig.baseUrl);
   late final catalog = widget.catalogRepository ?? CatalogRepository(client);
   late final repository = widget.authRepository ?? AuthRepository(client);
+  late final purchases = PurchasesRepository(client);
   AuthSession? session;
   Timer? expiry;
 
@@ -71,6 +73,7 @@ class _GestoPagoAppState extends State<GestoPagoApp>
     home: session != null
         ? AppShell(
             catalogRepository: catalog,
+            purchasesRepository: purchases,
             token: session!.token,
             onExit: endSession,
           )

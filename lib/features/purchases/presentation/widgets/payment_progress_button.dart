@@ -31,12 +31,12 @@ class PaymentProgressButton extends StatelessWidget {
             children: [
               const ColoredBox(color: action),
               TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
+                tween: Tween(begin: 0, end: 0.85),
                 duration: Duration(milliseconds: reduceMotion ? 100 : 1100),
                 curve: Curves.easeOutCubic,
                 builder: (context, value, child) => FractionallySizedBox(
                   alignment: Alignment.centerLeft,
-                  widthFactor: reduceMotion ? 1 : value,
+                  widthFactor: reduceMotion ? 0.85 : value,
                   child: child,
                 ),
                 child: const ColoredBox(color: ink),
