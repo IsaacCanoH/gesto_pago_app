@@ -63,62 +63,60 @@ class _HistoryPageState extends State<HistoryPage> {
   );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Historial de pagos')),
-    body: ListenableBuilder(
-      listenable: model,
-      builder: (context, child) {
-        final error = model.error;
-        final expired = error?.statusCode == 401;
-        return PageBody(
-          children: [
-            if (model.loading)
-              const LinearProgressIndicator(
-                semanticsLabel: 'Cargando historial',
-              ),
-            if (error != null) ...[
-              FieldError(error.message),
-              TextButton(
-                onPressed: expired ? widget.onSessionExpired : model.retry,
-                child: Text(expired ? 'Volver a iniciar sesión' : 'Reintentar'),
-              ),
-            ],
-            if (model.transactions.isEmpty && !model.loading && error == null)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  'Todavía no tienes pagos en tu historial.',
-                  style: TextStyle(color: muted),
-                ),
-              ),
-            if (model.totalPages > 1) ...[
-              _pagination(),
-              const SizedBox(height: 8),
-            ],
-            if (model.transactions.isNotEmpty)
-              Surface(
-                child: Column(
-                  children: [
-                    for (final (index, transaction)
-                        in model.transactions.indexed) ...[
-                      if (index > 0) const Divider(),
-                      _HistoryEntry(
-                        key: ValueKey(transaction.upc),
-                        transaction: transaction,
-                        consulting: model.isConsulting(transaction.upc),
-                        error: model.consultError(transaction.upc),
-                        onConsult: model.loading
-                            ? null
-                            : () => model.consult(transaction),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: model,
+    builder: (context, child) {
+      final error = model.error;
+      final expired = error?.statusCode == 401;
+      return PageBody(
+        children: [
+          const PageHeading('Historial de pagos'),
+          const SizedBox(height: 16),
+          if (model.loading)
+            const LinearProgressIndicator(semanticsLabel: 'Cargando historial'),
+          if (error != null) ...[
+            FieldError(error.message),
+            TextButton(
+              onPressed: expired ? widget.onSessionExpired : model.retry,
+              child: Text(expired ? 'Volver a iniciar sesión' : 'Reintentar'),
+            ),
           ],
-        );
-      },
-    ),
+          if (model.transactions.isEmpty && !model.loading && error == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                'Todavía no tienes pagos en tu historial.',
+                style: TextStyle(color: muted),
+              ),
+            ),
+          if (model.totalPages > 1) ...[
+            _pagination(),
+            const SizedBox(height: 8),
+          ],
+          if (model.transactions.isNotEmpty)
+            Surface(
+              child: Column(
+                children: [
+                  for (final (index, transaction)
+                      in model.transactions.indexed) ...[
+                    if (index > 0) const Divider(),
+                    _HistoryEntry(
+                      key: ValueKey(transaction.upc),
+                      transaction: transaction,
+                      consultPurchase: widget.consultPurchase,
+                      consulting: model.isConsulting(transaction.upc),
+                      error: model.consultError(transaction.upc),
+                      onConsult: model.loading
+                          ? null
+                          : () => model.consult(transaction),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      );
+    },
   );
 }
 
@@ -126,12 +124,14 @@ class _HistoryEntry extends StatelessWidget {
   const _HistoryEntry({
     super.key,
     required this.transaction,
+    required this.consultPurchase,
     required this.consulting,
     required this.error,
     required this.onConsult,
   });
 
   final PurchaseTransaction transaction;
+  final ConsultPurchase consultPurchase;
   final bool consulting;
   final String? error;
   final VoidCallback? onConsult;
@@ -185,7 +185,10 @@ class _HistoryEntry extends StatelessWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => TransactionDetailPage(transaction: transaction),
+              builder: (_) => TransactionDetailPage(
+                transaction: transaction,
+                consultPurchase: consultPurchase,
+              ),
             ),
           ),
         ),

@@ -90,7 +90,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Catálogo'), findsOneWidget);
+      expect(find.text('Recargas y pagos de servicios'), findsOneWidget);
       expect(find.text('Telcel'), findsOneWidget);
       expect(catalog.token, 'token-de-prueba');
 
