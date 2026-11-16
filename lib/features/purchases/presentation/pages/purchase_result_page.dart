@@ -1,87 +1,169 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../app/theme.dart';
 import '../../../../core/ui/app_widgets.dart';
-import '../../../history/data/models/transaction.dart';
-import '../../../history/presentation/pages/transaction_detail_page.dart';
+import '../../data/models/purchase_draft.dart';
+import '../../data/models/purchase_result.dart';
+import '../../data/purchases_repository.dart';
+import '../view_models/purchase_result_view_model.dart';
 
-enum PaymentStatus {
-  approved('Pago exitoso', Icons.check_circle_outline, success),
-  rejected('Pago rechazado', Icons.cancel_outlined, danger),
-  pending('Pago pendiente', Icons.schedule_outlined, Color(0xFF805300)),
-  connection('Error de comunicación', Icons.wifi_off_outlined, danger);
-
-  const PaymentStatus(this.label, this.icon, this.color);
-  final String label;
-  final IconData icon;
-  final Color color;
-}
-
-class PurchaseResultPage extends StatelessWidget {
+class PurchaseResultPage extends StatefulWidget {
   const PurchaseResultPage({
     super.key,
-    required this.transaction,
-    required this.status,
+    required this.draft,
+    required this.accountLabel,
+    required this.result,
+    required this.consultPurchase,
   });
-  final PurchaseTransaction transaction;
-  final PaymentStatus status;
+
+  final PurchaseDraft draft;
+  final String accountLabel;
+  final PurchaseResult? result;
+  final ConsultPurchase consultPurchase;
 
   @override
-  Widget build(BuildContext context) {
-    final item = transaction;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Resultado de compra')),
-      body: PageBody(
+  State<PurchaseResultPage> createState() => _PurchaseResultPageState();
+}
+
+class _PurchaseResultPageState extends State<PurchaseResultPage> {
+  late final model = PurchaseResultViewModel(
+    consult: widget.consultPurchase,
+    result: widget.result,
+  );
+
+  @override
+  void dispose() {
+    model.dispose();
+    super.dispose();
+  }
+
+  String formatDate(DateTime value) {
+    final date = value.toLocal();
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '$day/$month/${date.year} $hour:$minute';
+  }
+
+  Future<void> copyUpc(String upc) async {
+    await Clipboard.setData(ClipboardData(text: upc));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('UPC copiado')));
+    }
+  }
+
+  Widget buildReceipt(PurchaseResult? result) {
+    final date = result?.resolvedAt ?? result?.createdAt;
+    final authorization = result?.authorization;
+    return Surface(
+      child: Column(
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Icon(status.icon, size: 48, color: status.color),
-          ),
-          const SizedBox(height: 10),
-          PageHeading(status.label, subtitle: item.product),
-          const SizedBox(height: 8),
-          Text(
-            '${item.money} MXN',
-            style: Theme.of(context).textTheme.headlineLarge
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 24),
-          if (status == PaymentStatus.approved) ...[
-            Surface(
-              child: Column(
-                children: [
-                  ReceiptRow('Fecha', item.date),
-                  const Divider(),
-                  ReceiptRow('UPC', item.upc),
-                  const Divider(),
-                  ReceiptRow('Autorización', item.authorization),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => TransactionDetailPage(transaction: item),
-                ),
-              ),
-              child: const Text('Ver detalle de compra'),
-            ),
-          ] else
-            Text(switch (status) {
-              PaymentStatus.pending =>
-                'El proveedor aún está confirmando la operación.',
-              PaymentStatus.rejected => 'El proveedor rechazó la operación.',
-              _ => 'No pudimos confirmar el resultado. Evita repetir el pago.',
-            }),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: () =>
-                Navigator.of(context).popUntil((route) => route.isFirst),
-            child: const Text('Volver al catálogo'),
-          ),
+          ReceiptRow('Cuenta de cargo', widget.accountLabel),
+          if (date != null) ...[
+            const Divider(),
+            ReceiptRow('Fecha', formatDate(date)),
+          ],
+          if (result != null) ...[
+            const Divider(),
+            ReceiptRow('UPC', result.upc),
+          ],
+          if (authorization != null &&
+              result?.status == PurchaseStatus.successful) ...[
+            const Divider(),
+            ReceiptRow('Autorización', authorization),
+          ],
         ],
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: model,
+    builder: (context, child) {
+      final result = model.result;
+      final status = result?.status;
+      final (icon, color, description) = switch (status) {
+        PurchaseStatus.successful => (
+          Icons.check_circle_outline,
+          success,
+          null,
+        ),
+        PurchaseStatus.rejected => (
+          Icons.cancel_outlined,
+          danger,
+          'El pago fue rechazado.',
+        ),
+        PurchaseStatus.pending => (
+          Icons.schedule_outlined,
+          const Color(0xFF805300),
+          result?.requiresManualReview == true
+              ? 'El pago requiere revisión. Conserva el UPC para el seguimiento.'
+              : 'La confirmación sigue en proceso. Puedes consultar el estado con el UPC.',
+        ),
+        null => (
+          Icons.wifi_off_outlined,
+          danger,
+          'No pudimos confirmar el resultado. Evita repetir el pago hasta verificar el cargo.',
+        ),
+      };
+      return Scaffold(
+        appBar: AppBar(title: const Text('Resultado de compra')),
+        body: PageBody(
+          children: [
+            Semantics(
+              liveRegion: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 48, color: color),
+                  const SizedBox(height: 10),
+                  PageHeading(
+                    status?.label ?? 'Resultado sin confirmar',
+                    subtitle: widget.draft.productName,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.draft.amountLabel,
+              style: Theme.of(context).textTheme.headlineLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            if (description != null) ...[
+              const SizedBox(height: 12),
+              Text(description, style: const TextStyle(color: muted)),
+            ],
+            const SizedBox(height: 24),
+            buildReceipt(result),
+            if (model.error case final error?) FieldError(error),
+            const SizedBox(height: 20),
+            if (status == PurchaseStatus.pending) ...[
+              FilledButton(
+                onPressed: model.loading ? null : model.refresh,
+                child: Text(
+                  model.loading ? 'Consultando estado…' : 'Consultar estado',
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (result != null)
+              TextButton.icon(
+                onPressed: () => copyUpc(result.upc),
+                icon: const Icon(Icons.copy_outlined),
+                label: const Text('Copiar UPC'),
+              ),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Volver al catálogo'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }

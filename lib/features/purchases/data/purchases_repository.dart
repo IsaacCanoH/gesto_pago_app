@@ -7,20 +7,24 @@ typedef SubmitPurchase = Future<PurchaseResult> Function(
   PurchaseRequest request,
 );
 
+typedef ConsultPurchase = Future<PurchaseResult> Function(String upc);
+
 typedef LoadChargeAccounts = Future<List<ChargeAccount>> Function();
 
 enum PurchaseField { account, pin }
 
 class PurchaseFailure implements Exception {
-  const PurchaseFailure(this.message, {this.field});
+  const PurchaseFailure(this.message, {this.field, this.uncertain = false});
 
   const PurchaseFailure.unknown()
     : this(
         'No pudimos confirmar el resultado del pago. Evita repetirlo hasta verificar el cargo.',
+        uncertain: true,
       );
 
   final String message;
   final PurchaseField? field;
+  final bool uncertain;
 }
 
 class PurchasesRepository {
@@ -37,6 +41,20 @@ class PurchasesRepository {
       return List.unmodifiable(accounts.map(ChargeAccount.fromJson));
     } on FormatException {
       throw const ApiException('No pudimos leer tus cuentas.');
+    }
+  }
+
+  Future<PurchaseResult> consult(String token, String upc) async {
+    final data = await client.post('pagos/consultar', {
+      'upc': upc,
+      'ocultarNumeroCuenta': true,
+    }, token: token);
+    try {
+      final result = PurchaseResult.fromJson(data);
+      if (result.upc != upc) throw const FormatException();
+      return result;
+    } on FormatException {
+      throw const ApiException('No pudimos leer el estado de este pago.');
     }
   }
 

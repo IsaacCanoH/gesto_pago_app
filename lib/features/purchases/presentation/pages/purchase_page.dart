@@ -5,10 +5,10 @@ import '../../../../core/ui/code_input.dart';
 import '../../data/models/charge_account.dart';
 import '../../data/models/purchase_draft.dart';
 import '../../data/models/purchase_request.dart';
-import '../../data/models/purchase_result.dart';
 import '../../data/purchases_repository.dart';
 import '../view_models/purchase_view_model.dart';
 import '../widgets/payment_progress_button.dart';
+import 'purchase_result_page.dart';
 
 class PurchasePage extends StatefulWidget {
   const PurchasePage({
@@ -16,11 +16,13 @@ class PurchasePage extends StatefulWidget {
     required this.draft,
     required this.submitPurchase,
     required this.loadAccounts,
+    required this.consultPurchase,
   });
 
   final PurchaseDraft draft;
   final SubmitPurchase submitPurchase;
   final LoadChargeAccounts loadAccounts;
+  final ConsultPurchase consultPurchase;
 
   @override
   State<PurchasePage> createState() => _PurchasePageState();
@@ -48,7 +50,7 @@ class _PurchasePageState extends State<PurchasePage> {
     super.dispose();
   }
 
-  void confirm() {
+  Future<void> confirm() async {
     if (!model.canSubmit) return;
     final account = model.selectedAccount;
     setState(() {
@@ -64,7 +66,24 @@ class _PurchasePageState extends State<PurchasePage> {
     );
     FocusScope.of(context).unfocus();
     pin.clear();
-    model.submit(request);
+    await model.submit(request);
+    if (!mounted) return;
+
+    final result = model.result;
+    if (result == null && model.failure?.uncertain != true) return;
+
+    final confirmation = ModalRoute.of(context);
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => PurchaseResultPage(
+          draft: widget.draft,
+          accountLabel: account.label,
+          result: result,
+          consultPurchase: widget.consultPurchase,
+        ),
+      ),
+      (route) => route.isFirst && route != confirmation,
+    );
   }
 
   Widget buildAccountField() {
@@ -128,25 +147,11 @@ class _PurchasePageState extends State<PurchasePage> {
     ),
   );
 
-  Widget buildResult(PurchaseResult result) => Semantics(
-    liveRegion: true,
-    child: Surface(
-      child: Column(
-        children: [
-          ReceiptRow('Estado', result.status.label),
-          const Divider(),
-          ReceiptRow('UPC', result.upc),
-        ],
-      ),
-    ),
-  );
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: model,
     builder: (context, child) {
       final failure = model.failure;
-      final result = model.result;
       return PopScope(
         canPop: !model.processing,
         child: Scaffold(
@@ -157,40 +162,36 @@ class _PurchasePageState extends State<PurchasePage> {
               const SizedBox(height: 24),
               buildReceipt(widget.draft),
               const SizedBox(height: 24),
-              if (result != null)
-                buildResult(result)
-              else ...[
-                buildAccountField(),
-                if (accountMissing && model.selectedAccount == null)
-                  const FieldError('Selecciona una cuenta de cargo.'),
-                if (failure?.field == PurchaseField.account)
-                  FieldError(failure!.message),
-                const SizedBox(height: 20),
-                Text(
-                  'PIN de pago',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 4),
-                const Text('Ingresa tu PIN de seis dígitos.'),
-                const SizedBox(height: 12),
-                CodeInput(
-                  controller: pin,
-                  label: 'PIN de pago',
-                  secret: true,
-                  enabled: model.canSubmit,
-                ),
-                if (pinInvalid)
-                  const FieldError('Ingresa los seis dígitos del PIN.')
-                else if (failure?.field == PurchaseField.pin)
-                  FieldError(failure!.message),
-                if (failure != null && failure.field == null)
-                  FieldError(failure.message),
-                const SizedBox(height: 24),
-                PaymentProgressButton(
-                  processing: model.processing,
-                  onPressed: model.canSubmit ? confirm : null,
-                ),
-              ],
+              buildAccountField(),
+              if (accountMissing && model.selectedAccount == null)
+                const FieldError('Selecciona una cuenta de cargo.'),
+              if (failure?.field == PurchaseField.account)
+                FieldError(failure!.message),
+              const SizedBox(height: 20),
+              Text(
+                'PIN de pago',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              const Text('Ingresa tu PIN de seis dígitos.'),
+              const SizedBox(height: 12),
+              CodeInput(
+                controller: pin,
+                label: 'PIN de pago',
+                secret: true,
+                enabled: model.canSubmit,
+              ),
+              if (pinInvalid)
+                const FieldError('Ingresa los seis dígitos del PIN.')
+              else if (failure?.field == PurchaseField.pin)
+                FieldError(failure!.message),
+              if (failure != null && failure.field == null)
+                FieldError(failure.message),
+              const SizedBox(height: 24),
+              PaymentProgressButton(
+                processing: model.processing,
+                onPressed: model.canSubmit ? confirm : null,
+              ),
             ],
           ),
         ),

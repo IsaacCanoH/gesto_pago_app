@@ -21,6 +21,49 @@ const draft = PurchaseDraft(
 const accountId = 9;
 
 void main() {
+  test(
+    'consulta el UPC con JWT y solicita ocultar el número de cuenta',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final received = server.first.then((request) async {
+        final body = jsonDecode(await utf8.decoder.bind(request).join());
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode({
+            'estatus': 'EXITOSO',
+            'upc': 'P12345678901234',
+            'numeroAutorizacion': 'A2026',
+            'fechaResolucion': '2026-11-15T20:30:00Z',
+          }),
+        );
+        await request.response.close();
+        return (
+          request.method,
+          request.uri.path,
+          request.headers.value('authorization'),
+          body,
+        );
+      });
+
+      final repository = PurchasesRepository(
+        ApiClient(Uri.parse('http://127.0.0.1:${server.port}')),
+      );
+      final result = await repository.consult(
+        'jwt-de-prueba',
+        'P12345678901234',
+      );
+      final (method, path, authorization, body) = await received;
+      expect(
+        (method, path, authorization),
+        ('POST', '/pagos/consultar', 'Bearer jwt-de-prueba'),
+      );
+      expect(body, {'upc': 'P12345678901234', 'ocultarNumeroCuenta': true});
+      expect(result.status, PurchaseStatus.successful);
+      expect(result.authorization, 'A2026');
+      expect(result.resolvedAt, DateTime.utc(2026, 11, 15, 20, 30));
+    },
+  );
   test('envía el contrato autenticado y diferencia saldo insuficiente de un resultado incierto', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
