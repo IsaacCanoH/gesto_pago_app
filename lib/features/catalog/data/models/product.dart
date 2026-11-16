@@ -18,9 +18,15 @@ class Product {
 }
 
 class ProductOffer {
-  const ProductOffer({required this.id, required this.name, this.price});
+  const ProductOffer({
+    required this.id,
+    required this.name,
+    this.price,
+    this.legend,
+  });
 
   final int id;
   final String name;
   final num? price;
+  final String? legend;
 }

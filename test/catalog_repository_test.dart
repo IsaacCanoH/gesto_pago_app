@@ -13,6 +13,7 @@ Map<String, Object?> productRow({
   required int type,
   int category = 2,
   num? price,
+  String? legend,
 }) => {
   'idProducto': id,
   'idServicio': serviceId,
@@ -21,6 +22,7 @@ Map<String, Object?> productRow({
   'tipoFront': type,
   'idCatTipoServicio': category,
   'precio': price,
+  'leyenda': legend,
 };
 
 void main() {
@@ -64,6 +66,8 @@ void main() {
                 name: 'Pago de luz',
                 type: 2,
                 price: 10,
+                legend:
+                    'Conserva el comprobante.<br> Consulta con tu proveedor.',
               ),
               productRow(
                 id: 202,
@@ -112,6 +116,10 @@ void main() {
       final cfe = products.first;
       expect(cfe.fixed, isFalse);
       expect(cfe.offers.single.price, isNull);
+      expect(
+        cfe.offers.single.legend,
+        'Conserva el comprobante.\nConsulta con tu proveedor.',
+      );
       final telcel = products.last;
       expect(telcel.fixed, isTrue);
       expect(telcel.offers.map((option) => option.id), [102, 101]);

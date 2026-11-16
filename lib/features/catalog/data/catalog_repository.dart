@@ -24,6 +24,7 @@ class CatalogRepository {
       final service = row['servicio'];
       final name = row['producto'];
       final price = row['precio'];
+      final legend = _readLegend(row['leyenda']);
       if ((type != 1 && type != 2) ||
           category == 10 ||
           category == 11 ||
@@ -41,7 +42,7 @@ class CatalogRepository {
         if (price is! num || !price.isFinite || price <= 0) continue;
         serviceNames.putIfAbsent(serviceId, service.trim);
         (fixedGroups[serviceId] ??= []).add(
-          ProductOffer(id: id, name: name.trim(), price: price),
+          ProductOffer(id: id, name: name.trim(), price: price, legend: legend),
         );
       } else {
         services.add(
@@ -50,7 +51,7 @@ class CatalogRepository {
             service: service.trim(),
             type: 2,
             offers: List.unmodifiable([
-              ProductOffer(id: id, name: name.trim()),
+              ProductOffer(id: id, name: name.trim(), legend: legend),
             ]),
           ),
         );
@@ -80,5 +81,16 @@ class CatalogRepository {
           : serviceOrder;
     });
     return List.unmodifiable(products);
+  }
+
+  String? _readLegend(Object? value) {
+    if (value is! String) return null;
+    final text = value
+        .replaceAll(
+          RegExp(r'[ \t]*<br\s*/?>[ \t]*(?:\r?\n)?', caseSensitive: false),
+          '\n',
+        )
+        .trim();
+    return text.isEmpty ? null : text;
   }
 }
