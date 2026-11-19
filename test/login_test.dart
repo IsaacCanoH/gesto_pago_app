@@ -18,6 +18,8 @@ class DeferredAuthRepository extends AuthRepository {
   final resendResponse = Completer<AuthChallenge>();
   final verifications = <(String, String)>[];
   final resends = <String>[];
+  final logoutTokens = <String>[];
+  Completer<void> logoutResponse = Completer();
   int requests = 0;
   (String, String)? credentials;
 
@@ -32,6 +34,12 @@ class DeferredAuthRepository extends AuthRepository {
   Future<AuthSession> verify(String id, String code) {
     verifications.add((id, code));
     return verification.future;
+  }
+
+  @override
+  Future<void> signOut(String token) {
+    logoutTokens.add(token);
+    return logoutResponse.future;
   }
 
   @override
@@ -152,7 +160,27 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Cerrar sesión'));
+      await tester.pump();
+      expect(repository.logoutTokens, ['token-de-prueba']);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await tester.tap(find.byTooltip('Cerrar sesión'));
+      expect(repository.logoutTokens.length, 1);
+      repository.logoutResponse.completeError(
+        const ApiException('Sin conexión'),
+      );
       await tester.pumpAndSettle();
+      expect(find.text('Telcel'), findsOneWidget);
+      expect(
+        find.textContaining('No pudimos cerrar la sesión en el servidor'),
+        findsOneWidget,
+      );
+
+      repository.logoutResponse = Completer<void>();
+      await tester.tap(find.byTooltip('Cerrar sesión'));
+      await tester.pump();
+      repository.logoutResponse.complete();
+      await tester.pumpAndSettle();
+      expect(repository.logoutTokens, ['token-de-prueba', 'token-de-prueba']);
       expect(find.text('Iniciar sesión'), findsOneWidget);
     },
   );

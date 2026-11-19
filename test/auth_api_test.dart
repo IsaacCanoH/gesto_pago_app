@@ -15,10 +15,17 @@ void main() {
       final now = DateTime.now().toUtc();
       final expiry = now.add(const Duration(minutes: 5)).toIso8601String();
       final resendAt = now.add(const Duration(minutes: 1)).toIso8601String();
+      final sessionExpiry = now.add(const Duration(days: 7)).toIso8601String();
       final subscription = server.listen((request) async {
         final json = jsonDecode(await utf8.decoder.bind(request).join());
         requests.add((request.method, request.uri.path, json));
         request.response.headers.contentType = ContentType.json;
+        if (request.uri.path == '/auth/logout') {
+          expect(
+            request.headers.value(HttpHeaders.authorizationHeader),
+            'Bearer token-renovado',
+          );
+        }
         final data = switch (request.uri.path) {
           '/auth/login' => {
             'idVerificacion': 'reto-inicial',
@@ -33,7 +40,16 @@ void main() {
           '/auth/2fa/verificar' => {
             'token': 'token-de-prueba',
             'expiraEn': expiry,
+            'refreshToken': 'refresh-inicial',
+            'refreshExpiraEn': sessionExpiry,
           },
+          '/auth/refresh' => {
+            'token': 'token-renovado',
+            'expiraEn': expiry,
+            'refreshToken': 'refresh-nuevo',
+            'refreshExpiraEn': sessionExpiry,
+          },
+          '/auth/logout' => null,
           _ => throw StateError('Ruta inesperada'),
         };
         request.response.write(jsonEncode({'codigo': 0, 'datos': data}));
@@ -52,6 +68,9 @@ void main() {
       final resent = await repository.resend(first.id);
       final result = await repository.verify(resent.id, '012345');
       expect(result.token, 'token-de-prueba');
+      final renewed = await repository.refresh(result.refreshToken!);
+      expect(renewed.refreshToken, 'refresh-nuevo');
+      await repository.signOut(renewed.token);
       expect(
         requests
             .map((request) => [request.$1, request.$2, request.$3])
@@ -72,6 +91,12 @@ void main() {
             '/auth/2fa/verificar',
             {'idVerificacion': 'reto-nuevo', 'codigo': '012345'},
           ],
+          [
+            'POST',
+            '/auth/refresh',
+            {'refreshToken': 'refresh-inicial'},
+          ],
+          ['POST', '/auth/logout', {}],
         ],
       );
     },

@@ -33,6 +33,28 @@ class AuthRepository {
     }
   }
 
+  Future<AuthSession> refresh(String refreshToken) async {
+    final response = await client.post('auth/refresh', {
+      'refreshToken': refreshToken,
+    });
+    try {
+      return AuthSession.fromJson(response['datos']);
+    } on FormatException {
+      throw const ApiException('No pudimos leer la renovación de sesión.');
+    }
+  }
+
+  Future<void> signOut(String token) async {
+    try {
+      final response = await client.post('auth/logout', {}, token: token);
+      if (response['codigo'] != 0) {
+        throw const ApiException('No pudimos confirmar el cierre de sesión.');
+      }
+    } on ApiException catch (failure) {
+      if (failure.statusCode != 401) rethrow;
+    }
+  }
+
   AuthChallenge _readChallenge(Map<String, dynamic> response) {
     try {
       return AuthChallenge.fromJson(response['datos']);
