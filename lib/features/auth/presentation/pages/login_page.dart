@@ -13,9 +13,11 @@ class LoginPage extends StatefulWidget {
     super.key,
     required this.repository,
     required this.onSignedIn,
+    this.sessionMessage,
   });
   final AuthRepository repository;
   final ValueChanged<AuthSession> onSignedIn;
+  final String? sessionMessage;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -128,7 +130,8 @@ class _LoginPageState extends State<LoginPage> {
                     ? 'Ingresa tu contraseña.'
                     : null,
               ),
-              if (model.error != null) FieldError(model.error!),
+              if (model.error ?? widget.sessionMessage case final message?)
+                FieldError(message),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: model.busy ? null : submit,

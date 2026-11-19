@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gesto_pago_app/app/shell.dart';
 import 'package:gesto_pago_app/app/theme.dart';
+import 'package:gesto_pago_app/features/accounts/data/accounts_repository.dart';
 import 'package:gesto_pago_app/features/catalog/data/catalog_repository.dart';
 import 'package:gesto_pago_app/core/network/api_client.dart';
 import 'package:gesto_pago_app/features/history/data/history_repository.dart';
@@ -23,10 +24,12 @@ void main() {
         theme: gestoPagoTheme(),
         home: AppShell(
           catalogRepository: CatalogRepository(client),
+          accountsRepository: AccountsRepository(client),
           historyRepository: HistoryRepository(client),
           purchasesRepository: PurchasesRepository(client),
           token: 'jwt-de-prueba',
           onExit: () {},
+          onLogout: () async {},
         ),
       ),
     );
@@ -70,6 +73,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Recargas y pagos de servicios'), findsOneWidget);
     expect(client.catalogRequests, 1);
+
+    final navigation = find.byType(NavigationBar);
+    final destinations = tester.widget<NavigationBar>(navigation).destinations;
+    expect(destinations.length, 3);
+    final accountsTab = find.descendant(
+      of: navigation,
+      matching: find.text('Mis cuentas'),
+    );
+    final catalogTab = find.descendant(
+      of: navigation,
+      matching: find.text('Catálogo'),
+    );
+    expect(tester.getCenter(accountsTab).dy, tester.getCenter(catalogTab).dy);
+    await tester.tap(accountsTab);
+    await tester.pumpAndSettle();
+    expect(find.text('Cuenta •••• 0724'), findsOneWidget);
+    expect(find.text('Cuenta •••• 1023'), findsOneWidget);
+    expect(find.text('Activa'), findsOneWidget);
+    expect(find.text('Inactiva'), findsOneWidget);
+    expect(find.text('\$150.00 MXN'), findsOneWidget);
+    expect(client.accountRequests, 1);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      2,
+    );
   });
 
   testWidgets('consulta el mismo UPC y actualiza solo el pago pendiente', (
@@ -155,11 +183,32 @@ class _HistoryClient extends ApiClient {
   final consultedUpcs = <String>[];
   bool failNextPage = false;
   int catalogRequests = 0;
+  int accountRequests = 0;
 
   @override
   Future<Map<String, dynamic>> get(String path, {required String token}) async {
-    expect(path, 'gestopago/productos');
     expect(token, 'jwt-de-prueba');
+    if (path == 'cuentas/propias/gestion') {
+      accountRequests++;
+      return {
+        'codigo': 0,
+        'datos': [
+          {
+            'idCuenta': 7,
+            'ultimosDigitos': '0724',
+            'saldo': 150,
+            'estatus': 'ACTIVA',
+          },
+          {
+            'idCuenta': 8,
+            'ultimosDigitos': '1023',
+            'saldo': 0,
+            'estatus': 'INACTIVA',
+          },
+        ],
+      };
+    }
+    expect(path, 'gestopago/productos');
     catalogRequests++;
     return {'datos': []};
   }

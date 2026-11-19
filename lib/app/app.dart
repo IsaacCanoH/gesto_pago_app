@@ -1,12 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../core/config/api_config.dart';
 import '../core/network/api_client.dart';
+import '../core/network/authenticated_api_client.dart';
+import '../features/accounts/data/accounts_repository.dart';
 import '../features/auth/data/auth_repository.dart';
-import '../features/auth/data/models/auth_session.dart';
 import '../features/auth/presentation/pages/login_page.dart';
+import '../features/auth/presentation/view_models/session_view_model.dart';
 import '../features/catalog/data/catalog_repository.dart';
 import '../features/history/data/history_repository.dart';
 import '../features/purchases/data/purchases_repository.dart';
@@ -25,12 +25,18 @@ class GestoPagoApp extends StatefulWidget {
 class _GestoPagoAppState extends State<GestoPagoApp>
     with WidgetsBindingObserver {
   late final client = ApiClient(ApiConfig.baseUrl);
-  late final catalog = widget.catalogRepository ?? CatalogRepository(client);
   late final repository = widget.authRepository ?? AuthRepository(client);
-  late final history = HistoryRepository(client);
-  late final purchases = PurchasesRepository(client);
-  AuthSession? session;
-  Timer? expiry;
+  late final sessions = SessionViewModel(repository);
+  late final authenticated = AuthenticatedApiClient(
+    client,
+    sessions.tokenForRequest,
+    sessions.reject,
+  );
+  late final catalog =
+      widget.catalogRepository ?? CatalogRepository(authenticated);
+  late final history = HistoryRepository(authenticated);
+  late final accounts = AccountsRepository(authenticated);
+  late final purchases = PurchasesRepository(authenticated);
 
   @override
   void initState() {
@@ -38,48 +44,43 @@ class _GestoPagoAppState extends State<GestoPagoApp>
     WidgetsBinding.instance.addObserver(this);
   }
 
-  void onSignedIn(AuthSession value) {
-    expiry?.cancel();
-    expiry = Timer(value.expiresAt.difference(DateTime.now()), endSession);
-    setState(() => session = value);
-  }
-
-  void endSession() {
-    expiry?.cancel();
-    setState(() => session = null);
-  }
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final current = session;
-    if (state == AppLifecycleState.resumed &&
-        current != null &&
-        !current.expiresAt.isAfter(DateTime.now())) {
-      endSession();
-    }
+    if (state == AppLifecycleState.resumed) sessions.checkExpiry();
   }
 
   @override
   void dispose() {
-    expiry?.cancel();
+    sessions.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    key: ValueKey(session == null ? 'login' : 'session'),
-    title: 'Gesto Pago',
-    debugShowCheckedModeBanner: false,
-    theme: gestoPagoTheme(),
-    home: session != null
-        ? AppShell(
-            catalogRepository: catalog,
-            historyRepository: history,
-            purchasesRepository: purchases,
-            token: session!.token,
-            onExit: endSession,
-          )
-        : LoginPage(repository: repository, onSignedIn: onSignedIn),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: sessions,
+    builder: (context, child) => MaterialApp(
+      key: ValueKey(sessions.current == null ? 'login' : 'session'),
+      title: 'Gesto Pago',
+      debugShowCheckedModeBanner: false,
+      theme: gestoPagoTheme(),
+      home: sessions.current != null
+          ? AppShell(
+              catalogRepository: catalog,
+              accountsRepository: accounts,
+              historyRepository: history,
+              purchasesRepository: purchases,
+              token: sessions.initialToken!,
+              onExit: () => sessions.clear(),
+              onLogout: sessions.signOut,
+              closingSession: sessions.closing,
+              logoutError: sessions.logoutError,
+            )
+          : LoginPage(
+              repository: repository,
+              onSignedIn: sessions.start,
+              sessionMessage: sessions.notice,
+            ),
+    ),
   );
 }
