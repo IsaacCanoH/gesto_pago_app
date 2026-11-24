@@ -10,13 +10,20 @@ import '../features/auth/presentation/view_models/session_view_model.dart';
 import '../features/catalog/data/catalog_repository.dart';
 import '../features/history/data/history_repository.dart';
 import '../features/purchases/data/purchases_repository.dart';
+import '../features/registration/data/registration_repository.dart';
 import 'shell.dart';
 import 'theme.dart';
 
 class GestoPagoApp extends StatefulWidget {
-  const GestoPagoApp({super.key, this.authRepository, this.catalogRepository});
+  const GestoPagoApp({
+    super.key,
+    this.authRepository,
+    this.catalogRepository,
+    this.registrationRepository,
+  });
   final AuthRepository? authRepository;
   final CatalogRepository? catalogRepository;
+  final RegistrationRepository? registrationRepository;
 
   @override
   State<GestoPagoApp> createState() => _GestoPagoAppState();
@@ -26,6 +33,8 @@ class _GestoPagoAppState extends State<GestoPagoApp>
     with WidgetsBindingObserver {
   late final client = ApiClient(ApiConfig.baseUrl);
   late final repository = widget.authRepository ?? AuthRepository(client);
+  late final registration =
+      widget.registrationRepository ?? RegistrationRepository(client);
   late final sessions = SessionViewModel(repository);
   late final authenticated = AuthenticatedApiClient(
     client,
@@ -78,6 +87,7 @@ class _GestoPagoAppState extends State<GestoPagoApp>
             )
           : LoginPage(
               repository: repository,
+              registrationRepository: registration,
               onSignedIn: sessions.start,
               sessionMessage: sessions.notice,
             ),

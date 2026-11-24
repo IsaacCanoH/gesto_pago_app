@@ -16,8 +16,8 @@ void main() {
     await tester.tap(find.text('Regístrate'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Crear cuenta'), findsOneWidget);
+    expect(find.text('Datos personales'), findsOneWidget);
     expect(find.text('Nombre'), findsOneWidget);
-    expect(find.text('Registrarme'), findsOneWidget);
+    expect(find.text('Continuar'), findsOneWidget);
   });
 }
