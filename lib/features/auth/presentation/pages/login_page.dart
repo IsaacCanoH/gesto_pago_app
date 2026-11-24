@@ -5,17 +5,20 @@ import '../../data/auth_repository.dart';
 import '../../data/models/auth_session.dart';
 import '../view_models/login_view_model.dart';
 import '../widgets/auth_page_layout.dart';
-import 'register_page.dart';
+import '../../../registration/presentation/pages/register_page.dart';
+import '../../../registration/data/registration_repository.dart';
 import 'two_factor_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
     required this.repository,
+    required this.registrationRepository,
     required this.onSignedIn,
     this.sessionMessage,
   });
   final AuthRepository repository;
+  final RegistrationRepository registrationRepository;
   final ValueChanged<AuthSession> onSignedIn;
   final String? sessionMessage;
 
@@ -56,6 +59,17 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
     if (mounted && session != null) widget.onSignedIn(session);
+  }
+
+  Future<void> _register() async {
+    final registeredEmail = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => RegisterPage(repository: widget.registrationRepository),
+      ),
+    );
+    if (!mounted || registeredEmail == null) return;
+    email.text = registeredEmail;
+    password.clear();
   }
 
   @override
@@ -159,13 +173,7 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const Text('¿No tienes una cuenta?'),
                   TextButton(
-                    onPressed: model.busy
-                        ? null
-                        : () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const RegisterPage(),
-                            ),
-                          ),
+                    onPressed: model.busy ? null : _register,
                     child: const Text('Regístrate'),
                   ),
                 ],

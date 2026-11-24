@@ -9,6 +9,8 @@ class CodeInput extends StatelessWidget {
     required this.controller,
     required this.label,
     this.secret = false,
+    this.focusNode,
+    this.hasError = false,
     this.enabled = true,
     this.autofillHints,
     this.onChanged,
@@ -17,6 +19,8 @@ class CodeInput extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final bool secret;
+  final FocusNode? focusNode;
+  final bool hasError;
   final bool enabled;
   final Iterable<String>? autofillHints;
   final ValueChanged<String>? onChanged;
@@ -42,7 +46,11 @@ class CodeInput extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: index == value.text.length ? action : line,
+                          color: hasError
+                              ? danger
+                              : index == value.text.length
+                              ? action
+                              : line,
                         ),
                       ),
                       child: Center(
@@ -69,6 +77,7 @@ class CodeInput extends StatelessWidget {
           label: label,
           child: TextField(
             controller: controller,
+            focusNode: focusNode,
             enabled: enabled,
             obscureText: secret,
             autofillHints: autofillHints,

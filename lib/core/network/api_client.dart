@@ -5,10 +5,18 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode, this.serverMessage});
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.serverMessage,
+    this.fieldErrors = const {},
+    this.outcomeUnknown = false,
+  });
   final String message;
   final int? statusCode;
   final String? serverMessage;
+  final Map<String, String> fieldErrors;
+  final bool outcomeUnknown;
 }
 
 class ApiClient {
@@ -33,14 +41,12 @@ class ApiClient {
     Duration timeout = const Duration(seconds: 15),
   }) async {
     if (kIsWeb) {
-      throw const ApiException(
-        'Abre Gesto Pago en Android para iniciar sesión.',
-      );
+      throw const ApiException('Abre Gesto Pago en Android para continuar.');
     }
     final base = baseUrl;
     if (base == null) {
       throw const ApiException(
-        'Configura la dirección de la API para iniciar sesión.',
+        'Configura la dirección de la API para continuar.',
       );
     }
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
@@ -54,15 +60,20 @@ class ApiClient {
         token,
       ).timeout(timeout);
     } on TimeoutException {
-      throw const ApiException(
+      throw ApiException(
         'El servidor tardó en responder. Intenta de nuevo.',
+        outcomeUnknown: method == 'POST',
       );
     } on IOException {
-      throw const ApiException(
+      throw ApiException(
         'No pudimos conectar. Revisa tu conexión e intenta de nuevo.',
+        outcomeUnknown: method == 'POST',
       );
     } on FormatException {
-      throw const ApiException('El servidor devolvió una respuesta inválida.');
+      throw ApiException(
+        'El servidor devolvió una respuesta inválida.',
+        outcomeUnknown: method == 'POST',
+      );
     } finally {
       client.close(force: true);
     }
@@ -92,11 +103,13 @@ class ApiClient {
     }
     final response = await request.close();
     final raw = await response.transform(utf8.decoder).join();
-    if (response.statusCode != 200) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final error = _readError(raw);
       throw _responseError(
         response.statusCode,
         authenticated: token != null,
-        serverMessage: _readErrorMessage(raw),
+        serverMessage: error.message,
+        fieldErrors: error.fields,
       );
     }
     final decoded = jsonDecode(raw);
@@ -104,23 +117,34 @@ class ApiClient {
     throw const FormatException();
   }
 
-  String? _readErrorMessage(String raw) {
+  ({String? message, Map<String, String> fields}) _readError(String raw) {
     try {
       final error = jsonDecode(raw);
       if (error is Map<String, dynamic> && error['codigo'] == 1) {
         final message = error['mensaje'];
-        if (message is String) return message;
+        final errors = error['errores'];
+        return (
+          message: message is String ? message : null,
+          fields: errors is Map
+              ? Map.unmodifiable({
+                  for (final entry in errors.entries)
+                    if (entry.key is String && entry.value is String)
+                      entry.key as String: entry.value as String,
+                })
+              : const {},
+        );
       }
     } on FormatException {
-      return null;
+      return (message: null, fields: const {});
     }
-    return null;
+    return (message: null, fields: const {});
   }
 
   ApiException _responseError(
     int code, {
     required bool authenticated,
     required String? serverMessage,
+    required Map<String, String> fieldErrors,
   }) {
     final message = switch (code) {
       400 =>
@@ -139,6 +163,7 @@ class ApiClient {
       message,
       statusCode: code,
       serverMessage: serverMessage,
+      fieldErrors: fieldErrors,
     );
   }
 }
